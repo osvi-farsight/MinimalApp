@@ -10,5 +10,10 @@
 
     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
         <Button x:Name="myButton" Click="myButton_Click">Click Me</Button>
+
+        <Button x:Name="ButtonGreetUserAsync" Click="ButtonGreetUserAsync_Click">GreetUserAsync</Button>
+        <Button x:Name="ButtonDisplayAccessTokenAsync" Click="ButtonDisplayAccessTokenAsync_Click">DisplayAccessTokenAsync</Button>
+        <Button x:Name="ButtonListInboxAsync" Click="ButtonListInboxAsync_Click">ListInboxAsync</Button>
+        <Button x:Name="ButtonSendMailAsync" Click="ButtonSendMailAsync_Click">SendMailAsync</Button>
     </StackPanel>
 </Window>
