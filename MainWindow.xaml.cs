@@ -7,11 +7,13 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
+using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
 using Windows.Foundation.Collections;
 
@@ -25,16 +27,34 @@ namespace MinimalApp
     /// </summary>
     public sealed partial class MainWindow : Window
     {
-        Settings settings = Settings.LoadSettings();
+        Settings settings;
+
+        public record DisplayMessage
+        {
+            public string Subject { get; set; }
+            public string From { get; set; }
+            public string Received { get; set; }
+            public string BodyPreview { get; set; }
+            public string FontWeight { get; set; }
+            public DisplayMessage(string Subject, string From, string Received, string BodyPreview)
+            {
+                this.Subject = Subject;
+                this.From = From;
+                this.Received = Received;
+                this.BodyPreview = BodyPreview;
+                this.FontWeight = "";
+            }
+        };
+        public ObservableCollection<DisplayMessage> Messages { get; set; }
 
         public MainWindow()
         {
             this.InitializeComponent();
-        }
+            settings = Settings.LoadSettings();
+            InitializeGraph(settings);
 
-        private void myButton_Click(object sender, RoutedEventArgs e)
-        {
-            myButton.Content = "Clicked";
+            this.Messages = new ObservableCollection<DisplayMessage>();
+            MyListView.ItemsSource = this.Messages;
         }
 
         private void ButtonGreetUserAsync_Click(object sender, RoutedEventArgs e)
@@ -67,6 +87,14 @@ namespace MinimalApp
                     // where to go to sign in and provides the
                     // code to use.
                     Debug.WriteLine(info.Message);
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        DataPackage dataPackage = new() { RequestedOperation = DataPackageOperation.Copy };
+                        dataPackage.SetText(info.UserCode);
+                        Clipboard.SetContent(dataPackage);
+                        WebViewAuth.Visibility = Visibility.Visible;
+                        WebViewAuth.Source = info.VerificationUri;
+                    });
                     return Task.FromResult(0);
                 });
         }
@@ -80,6 +108,10 @@ namespace MinimalApp
                 // For Work/school accounts, email is in Mail property
                 // Personal accounts, email is in UserPrincipalName
                 Debug.WriteLine($"Email: {user?.Mail ?? user?.UserPrincipalName ?? ""}");
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    TextBlockStatus.Text = $"Hello, {user?.DisplayName}! Email: {user?.Mail ?? user?.UserPrincipalName ?? ""}";
+                });
             }
             catch (Exception ex)
             {
@@ -93,10 +125,16 @@ namespace MinimalApp
             {
                 var userToken = await GraphHelper.GetUserTokenAsync();
                 Debug.WriteLine($"User token: {userToken}");
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    WebViewAuth.Visibility = Visibility.Collapsed;
+                    TextBlockStatus.Text = $"User token: {userToken}";
+                });
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error getting user access token: {ex.Message}");
+                _ = DisplayAccessTokenAsync();
             }
         }
 
@@ -112,6 +150,7 @@ namespace MinimalApp
                     return;
                 }
 
+                this.Messages.Clear();
                 // Output each message's details
                 foreach (var message in messagePage.Value)
                 {
@@ -119,6 +158,16 @@ namespace MinimalApp
                     Debug.WriteLine($"  From: {message.From?.EmailAddress?.Name}");
                     Debug.WriteLine($"  Status: {(message.IsRead!.Value ? "Read" : "Unread")}");
                     Debug.WriteLine($"  Received: {message.ReceivedDateTime?.ToLocalTime().ToString()}");
+
+                    var displayMessage = new DisplayMessage(
+                        message.Subject ?? "NO SUBJECT",
+                        message.From?.EmailAddress?.Name,
+                        message.ReceivedDateTime?.ToLocalTime().ToString(),
+                        message.BodyPreview
+                    );
+                    if (message.IsRead!.Value == false) displayMessage.FontWeight = "Bold";
+
+                    this.Messages.Add(displayMessage);
                 }
 
                 // If NextPageRequest is not null, there are more messages
@@ -156,6 +205,10 @@ namespace MinimalApp
                     "Hello world!", userEmail);
 
                 Debug.WriteLine("Mail sent.");
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    TextBlockStatus.Text = "Mail sent.";
+                });
             }
             catch (Exception ex)
             {

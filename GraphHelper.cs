@@ -26,6 +26,8 @@ namespace MinimalApp
         // Client configured with user authentication
         private static GraphServiceClient? _userClient;
 
+        private static string? _token;
+
         public static void InitializeGraphForUserAuth(Settings settings,
             Func<DeviceCodeInfo, CancellationToken, Task> deviceCodePrompt)
         {
@@ -45,6 +47,8 @@ namespace MinimalApp
 
         public static async Task<string> GetUserTokenAsync()
         {
+            if (_token != null) return _token;
+
             // Ensure credential isn't null
             _ = _deviceCodeCredential ??
                 throw new System.NullReferenceException("Graph has not been initialized for user auth");
@@ -55,6 +59,7 @@ namespace MinimalApp
             // Request token with given scopes
             var context = new TokenRequestContext(_settings.GraphUserScopes);
             var response = await _deviceCodeCredential.GetTokenAsync(context);
+            _token = response.Token;
             return response.Token;
         }
 
@@ -68,6 +73,7 @@ namespace MinimalApp
             {
                 // Only request specific properties
                 config.QueryParameters.Select = new[] { "displayName", "mail", "userPrincipalName" };
+                if (_token != null) config.Headers.Add("Authorization", $"bearer {_token}");
             });
         }
 
@@ -89,6 +95,7 @@ namespace MinimalApp
                     config.QueryParameters.Top = 25;
                     // Sort by received time, newest first
                     config.QueryParameters.Orderby = new[] { "receivedDateTime DESC" };
+                    if (_token != null) config.Headers.Add("Authorization", $"bearer {_token}");
                 });
         }
 
@@ -125,6 +132,9 @@ namespace MinimalApp
                 .PostAsync(new SendMailPostRequestBody
                 {
                     Message = message
+                }, (config) =>
+                {
+                    if (_token != null) config.Headers.Add("Authorization", $"bearer {_token}");
                 });
         }
     }

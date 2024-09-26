@@ -23,7 +23,7 @@ namespace MinimalApp
                 // appsettings.Development.json" is optional, values override appsettings.json
                 .AddJsonFile($"appsettings.Development.json", optional: true)
                 // User secrets are optional, values override both JSON files
-                .AddUserSecrets<MainWindow>()
+                .AddUserSecrets<App>()
                 .Build();
 
             return config.GetRequiredSection("Settings").Get<Settings>() ??
